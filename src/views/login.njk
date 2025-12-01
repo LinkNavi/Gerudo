@@ -1,0 +1,21 @@
+{% extends "layout.njk" %}
+
+{% block title %}Log-In - Gerudo{% endblock %}
+
+{% block content %}
+<div class="login-container">
+  <form class="login-form" method="POST" action="/auth/login">
+    <h2>Log In</h2>
+
+    <label for="username">Username:</label>
+    <input type="text" id="username" name="username" required>
+
+    <label for="password">Password:</label>
+    <input type="password" id="password" name="password" required>
+
+    <button type="submit">Log In</button>
+
+    <p>Don't have an account? <a href="signup">Register here</a>.</p>
+  </form>
+</div>
+{% endblock %}

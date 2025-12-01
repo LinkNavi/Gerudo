@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Gerudo{% endblock %}</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-container">
+      <h1>Gerudo</h1>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+        <a href="/projects">Projects</a>
+
+        {% if user %}
+          <a href="/dashboard">Dashboard</a>
+          <form method="POST" action="/auth/logout" class="inline-form">
+            <button type="submit">Logout</button>
+          </form>
+        {% else %}
+          <a href="/login">Login</a>
+          <a href="/signup">Register</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="content-wrapper">
+      {% block content %}{% endblock %}
+    </section>
+  </main>
+
+  <footer>
+    &copy; {{ year }} Gerudo
+  </footer>
+</body>
+</html>

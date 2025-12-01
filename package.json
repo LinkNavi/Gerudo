@@ -1,0 +1,30 @@
+{
+  "name": "gerudo",
+  "version": "1.0.0",
+  "description": "Neocities Clone",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "argon2": "^0.44.0",
+    "bcrypt": "^6.0.0",
+    "better-sqlite3": "^12.4.1",
+    "chokidar": "^3.6.0",
+    "compression": "^1.8.1",
+    "connect-mongo": "^5.1.0",
+    "connect-sqlite3": "^0.9.16",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "helmet": "^8.1.0",
+    "mongoose": "^8.20.0",
+    "morgan": "^1.10.1",
+    "nunjucks": "^3.2.4",
+    "zod": "^4.1.12"
+  }
+}

@@ -1,0 +1,48 @@
+{% extends "layout.njk" %}
+
+{% block title %}{{ title }} - Gerudo{% endblock %}
+
+{% block content %}
+<section class="dashboard">
+  <h2>Welcome to your Dashboard</h2>
+  <p>You currently own <strong>{{ totalsites }}</strong> site{% if totalsites != 1 %}s{% endif %}.</p>
+
+  <section class="sites-list">
+    {% if sites.length > 0 %}
+      <h3>Your Sites:</h3>
+      <ul>
+        {% for site in sites %}
+          <li>
+            <strong>{{ site.title }}</strong> — slug: <code>{{ site.slug }}</code>
+            <form method="POST" action="/dashboard/delete-site/{{ site.id }}" style="display:inline;">
+              <button type="submit">Delete</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>You don’t have any sites yet.</p>
+    {% endif %}
+  </section>
+
+  <!-- Button to open popup -->
+  <p><a href="#create-site-popup" class="button">Create a New Site</a></p>
+
+  <!-- Popup -->
+  <div id="create-site-popup" class="popup">
+    <div class="popup-content">
+      <a href="#" class="close">&times;</a>
+      <h3>Create a New Site</h3>
+      <form method="POST" action="/dashboard/create-site">
+        <label for="slug">Site Slug:</label><br>
+        <input type="text" id="slug" name="slug" required><br>
+
+        <label for="title">Site Title:</label><br>
+        <input type="text" id="title" name="title" required><br><br>
+
+        <button type="submit">Create Site</button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}
