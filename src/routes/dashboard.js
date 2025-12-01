@@ -1,13 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const Site = require("../models/Site");
-const User = require("../models/User");
 const requireAuth = require("../middleware/auth");
 
 // ============================================================
 // VALIDATION HELPERS
 // ============================================================
-
 function validateSlug(slug) {
   if (!slug || typeof slug !== 'string') {
     return { valid: false, error: 'Slug is required' };
@@ -21,7 +19,6 @@ function validateSlug(slug) {
     return { valid: false, error: 'Slug must be less than 50 characters' };
   }
   
-  // Only allow lowercase letters, numbers, and hyphens
   if (!/^[a-z0-9-]+$/.test(slug)) {
     return { 
       valid: false, 
@@ -29,7 +26,6 @@ function validateSlug(slug) {
     };
   }
   
-  // Can't start or end with hyphen
   if (slug.startsWith('-') || slug.endsWith('-')) {
     return { 
       valid: false, 
@@ -59,10 +55,9 @@ function validateTitle(title) {
 // ============================================================
 // DASHBOARD HOME
 // ============================================================
-
-router.get("/", requireAuth, (req, res) => {
+router.get("/", requireAuth, async (req, res) => {
   try {
-    const sites = User.listSites(req.session.userId);
+    const sites = await Site.findByOwner(req.session.userId);
     
     res.render("dashboard.njk", { 
       sites: sites,
@@ -79,172 +74,164 @@ router.get("/", requireAuth, (req, res) => {
 // ============================================================
 // CREATE SITE
 // ============================================================
-
 router.post("/create-site", requireAuth, async (req, res) => {
   try {
     const { slug, title } = req.body;
     
-    // Validate slug
     const slugValidation = validateSlug(slug);
     if (!slugValidation.valid) {
-      return res.status(400).json({ 
-        error: slugValidation.error 
-      });
+      req.flash('error', slugValidation.error);
+      return res.redirect('/dashboard');
     }
     
-    // Validate title
     const titleValidation = validateTitle(title);
     if (!titleValidation.valid) {
-      return res.status(400).json({ 
-        error: titleValidation.error 
-      });
+      req.flash('error', titleValidation.error);
+      return res.redirect('/dashboard');
     }
     
-    // Create site
-    const site = Site.create({
+    await Site.create({
       ownerId: req.session.userId,
       slug: slug.toLowerCase().trim(),
       title: title.trim()
     });
     
     req.flash('success', `Site "${title}" created successfully!`);
-    
-    res.json({ 
-      success: true,
-      site: site
-    });
+    res.redirect('/dashboard');
     
   } catch (err) {
     console.error('Create site error:', err);
     
-    // Check if it's a duplicate slug error
-    if (err.message && err.message.includes('UNIQUE constraint')) {
-      return res.status(400).json({ 
-        error: 'A site with this slug already exists' 
-      });
+    if (err.code === '23505') { // PostgreSQL unique violation
+      req.flash('error', 'A site with this slug already exists');
+    } else {
+      req.flash('error', 'Failed to create site');
     }
     
-    res.status(500).json({ 
-      error: 'Failed to create site' 
+    res.redirect('/dashboard');
+  }
+});
+
+// ============================================================
+// EDIT SITE PAGE
+// ============================================================
+router.get("/edit-site/:id", requireAuth, async (req, res) => {
+  try {
+    const siteId = parseInt(req.params.id, 10);
+    const site = await Site.findById(siteId);
+    
+    if (!site) {
+      req.flash('error', 'Site not found');
+      return res.redirect('/dashboard');
+    }
+    
+    if (site.owner_id !== req.session.userId) {
+      req.flash('error', 'You do not have permission to edit this site');
+      return res.redirect('/dashboard');
+    }
+    
+    res.render("edit-site.njk", {
+      site: site,
+      title: `Edit ${site.title}`
     });
+    
+  } catch (err) {
+    console.error('Edit site page error:', err);
+    req.flash('error', 'Failed to load site');
+    res.redirect('/dashboard');
   }
 });
 
 // ============================================================
 // UPDATE SITE
 // ============================================================
-
 router.post("/update-site/:id", requireAuth, async (req, res) => {
   try {
     const siteId = parseInt(req.params.id, 10);
     const { slug, title } = req.body;
     
-    // Validate site exists and user owns it
-    const site = Site.findById(siteId);
+    const site = await Site.findById(siteId);
     if (!site) {
-      return res.status(404).json({ 
-        error: 'Site not found' 
-      });
+      req.flash('error', 'Site not found');
+      return res.redirect('/dashboard');
     }
     
-    if (site.ownerId !== req.session.userId) {
-      return res.status(403).json({ 
-        error: 'You do not have permission to edit this site' 
-      });
+    if (site.owner_id !== req.session.userId) {
+      req.flash('error', 'You do not have permission to edit this site');
+      return res.redirect('/dashboard');
     }
     
-    // Validate slug
     const slugValidation = validateSlug(slug);
     if (!slugValidation.valid) {
-      return res.status(400).json({ 
-        error: slugValidation.error 
-      });
+      req.flash('error', slugValidation.error);
+      return res.redirect(`/dashboard/edit-site/${siteId}`);
     }
     
-    // Validate title
     const titleValidation = validateTitle(title);
     if (!titleValidation.valid) {
-      return res.status(400).json({ 
-        error: titleValidation.error 
-      });
+      req.flash('error', titleValidation.error);
+      return res.redirect(`/dashboard/edit-site/${siteId}`);
     }
     
-    // Update site
-    const updatedSite = Site.update({
+    await Site.update({
       id: siteId,
       slug: slug.toLowerCase().trim(),
       title: title.trim()
     });
     
     req.flash('success', 'Site updated successfully!');
-    
-    res.json({ 
-      success: true,
-      site: updatedSite
-    });
+    res.redirect('/dashboard');
     
   } catch (err) {
     console.error('Update site error:', err);
     
-    if (err.message && err.message.includes('UNIQUE constraint')) {
-      return res.status(400).json({ 
-        error: 'A site with this slug already exists' 
-      });
+    if (err.code === '23505') {
+      req.flash('error', 'A site with this slug already exists');
+    } else {
+      req.flash('error', 'Failed to update site');
     }
     
-    res.status(500).json({ 
-      error: 'Failed to update site' 
-    });
+    res.redirect('/dashboard');
   }
 });
 
 // ============================================================
 // DELETE SITE
 // ============================================================
-
 router.post("/delete-site/:id", requireAuth, async (req, res) => {
   try {
     const siteId = parseInt(req.params.id, 10);
     
-    // Validate site exists and user owns it
-    const site = Site.findById(siteId);
+    const site = await Site.findById(siteId);
     if (!site) {
-      return res.status(404).json({ 
-        error: 'Site not found' 
-      });
+      req.flash('error', 'Site not found');
+      return res.redirect('/dashboard');
     }
     
-    if (site.ownerId !== req.session.userId) {
-      return res.status(403).json({ 
-        error: 'You do not have permission to delete this site' 
-      });
+    if (site.owner_id !== req.session.userId) {
+      req.flash('error', 'You do not have permission to delete this site');
+      return res.redirect('/dashboard');
     }
     
-    // Delete site
-    Site.delete(siteId);
+    await Site.delete(siteId);
     
     req.flash('success', `Site "${site.title}" deleted successfully`);
-    
-    res.json({ 
-      success: true 
-    });
+    res.redirect('/dashboard');
     
   } catch (err) {
     console.error('Delete site error:', err);
-    res.status(500).json({ 
-      error: 'Failed to delete site' 
-    });
+    req.flash('error', 'Failed to delete site');
+    res.redirect('/dashboard');
   }
 });
 
 // ============================================================
 // VIEW SITE (Public view)
 // ============================================================
-
-router.get("/site/:slug", (req, res) => {
+router.get("/site/:slug", async (req, res) => {
   try {
     const slug = req.params.slug;
-    const site = Site.findBySlug(slug);
+    const site = await Site.findBySlug(slug);
     
     if (!site) {
       return res.status(404).render("404.njk", {
@@ -253,8 +240,13 @@ router.get("/site/:slug", (req, res) => {
       });
     }
     
+    const files = await Site.listFiles(site.id);
+    const indexFile = files.find(f => f.path === 'index.html');
+    
     res.render("site-view.njk", {
       site: site,
+      files: files,
+      indexFile: indexFile,
       title: site.title
     });
     

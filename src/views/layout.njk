@@ -9,33 +9,56 @@
 <body>
   <header>
     <div class="header-container">
-      <h1>Gerudo</h1>
+      <h1><a href="/" style="color: inherit; text-decoration: none;">Gerudo</a></h1>
       <nav>
-        <a href="/">Home</a>
-        <a href="/about">About</a>
-        <a href="/projects">Projects</a>
+        <a href="/" {% if currentPath == '/' %}class="active"{% endif %}>Home</a>
+        <a href="/about" {% if currentPath == '/about' %}class="active"{% endif %}>About</a>
+        <a href="/browse" {% if currentPath == '/browse' %}class="active"{% endif %}>Browse</a>
 
         {% if user %}
-          <a href="/dashboard">Dashboard</a>
-          <form method="POST" action="/auth/logout" class="inline-form">
-            <button type="submit">Logout</button>
+          <a href="/dashboard" {% if currentPath.startsWith('/dashboard') %}class="active"{% endif %}>Dashboard</a>
+          <form method="POST" action="/auth/logout" style="display: inline;">
+            <button type="submit">Logout ({{ user.username }})</button>
           </form>
         {% else %}
-          <a href="/login">Login</a>
-          <a href="/signup">Register</a>
+          <a href="/login" {% if currentPath == '/login' %}class="active"{% endif %}>Login</a>
+          <a href="/signup" {% if currentPath == '/signup' %}class="active"{% endif %}>Sign Up</a>
         {% endif %}
       </nav>
     </div>
   </header>
 
   <main>
-    <section class="content-wrapper">
-      {% block content %}{% endblock %}
-    </section>
+    {% if flash.success %}
+      <div class="flash-messages">
+        <div class="flash flash-success">
+          ✓ {{ flash.success }}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if flash.error %}
+      <div class="flash-messages">
+        <div class="flash flash-error">
+          ✗ {{ flash.error }}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if flash.info %}
+      <div class="flash-messages">
+        <div class="flash flash-info">
+          ℹ {{ flash.info }}
+        </div>
+      </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
   </main>
 
   <footer>
-    &copy; {{ year }} Gerudo
+    <p>&copy; {{ year }} Gerudo - A Neocities Clone</p>
+    <p class="text-muted small">Made with ❤️ without client-side JavaScript</p>
   </footer>
 </body>
 </html>

@@ -3,17 +3,72 @@
 {% block title %}Home - Gerudo{% endblock %}
 
 {% block content %}
-<section class="intro">
-  <h2>Hello, traveler!</h2>
-  <p>This is your Neocities-inspired clone, now in sage green glory.</p>
-</section>
+<section class="content-wrapper">
+  <div class="text-center mb-lg">
+    <h2 style="font-size: 3rem; color: var(--sage);">Welcome to Gerudo</h2>
+    <p class="text-muted" style="font-size: 1.2rem;">
+      A Neocities-inspired platform for creating and sharing your own websites
+    </p>
+  </div>
 
-<section class="projects">
-  <h2>Projects</h2>
-  <ul>
-    <li>Project Alpha</li>
-    <li>Project Beta</li>
-    <li>Project Gamma</li>
-  </ul>
+  <div class="intro mt-xl">
+    <h3>What is Gerudo?</h3>
+    <p>
+      Gerudo is a web hosting platform that lets you create and publish your own websites 
+      for free. Whether you're building a personal blog, a portfolio, or just experimenting 
+      with HTML, Gerudo provides a simple and welcoming space for your creativity.
+    </p>
+  </div>
+
+  <div class="features mt-xl">
+    <h3>Features</h3>
+    <div class="sites-grid">
+      <div class="card">
+        <h4 style="color: var(--sage);">🎨 Creative Freedom</h4>
+        <p>Build your site exactly how you want it with full HTML, CSS, and JavaScript support.</p>
+      </div>
+      <div class="card">
+        <h4 style="color: var(--sage);">🌐 Community</h4>
+        <p>Browse and discover sites created by other members of the Gerudo community.</p>
+      </div>
+      <div class="card">
+        <h4 style="color: var(--sage);">🚀 Easy to Use</h4>
+        <p>Simple dashboard to manage your sites and upload files without complexity.</p>
+      </div>
+      <div class="card">
+        <h4 style="color: var(--sage);">🔒 Secure</h4>
+        <p>Your data is protected with modern security practices and encrypted passwords.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta text-center mt-xl">
+    {% if not user %}
+      <h3 class="mb-md">Ready to get started?</h3>
+      <div class="flex-center gap-md">
+        <a href="/signup" class="btn btn-primary">Create an Account</a>
+        <a href="/browse" class="btn btn-secondary">Browse Sites</a>
+      </div>
+    {% else %}
+      <h3 class="mb-md">Welcome back, {{ user.username }}!</h3>
+      <div class="flex-center gap-md">
+        <a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>
+        <a href="/browse" class="btn btn-secondary">Browse Sites</a>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="about mt-xl">
+    <h3>About the Platform</h3>
+    <p>
+      Gerudo is inspired by the spirit of the early web and platforms like Neocities. 
+      We believe the web should be a place for creativity, learning, and personal expression. 
+      This platform runs entirely without client-side JavaScript, demonstrating that modern 
+      web applications can be built with progressive enhancement and accessibility in mind.
+    </p>
+    <p class="text-muted mt-md">
+      Built with Node.js, Express, PostgreSQL, and Nunjucks templates.
+    </p>
+  </div>
 </section>
 {% endblock %}

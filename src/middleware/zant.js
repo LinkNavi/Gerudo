@@ -6,6 +6,8 @@
 // License: MIT
 
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 // ============================================================
 // CONFIGURATION
@@ -37,6 +39,9 @@ const config = {
     windowMs: 60000, // 1 minute
     maxRequests: 20, // Max requests per window
   },
+  
+  // Path to your main style.css file
+  styleSheetPath: path.join(__dirname, 'src/public/style.css'),
 };
 
 // Store for tracking fingerprints and rate limits
@@ -46,6 +51,86 @@ const banStore = new Map();
 // Secret rotation for enhanced security
 let currentSecret = config.secret;
 let secretRotationTimer;
+
+// Cache for parsed CSS colors
+let cssColors = null;
+let cssLastModified = null;
+
+// ============================================================
+// CSS COLOR EXTRACTION
+// ============================================================
+
+function parseCSSColors(cssContent) {
+  const colors = {
+    // Default fallback colors
+    background: 'linear-gradient(135deg, #1a0033 0%, #2d0052 50%, #1a0033 100%)',
+    foreground: '#e0d4ff',
+    boxBackground: 'rgba(45, 0, 82, 0.9)',
+    border: '#6b46c1',
+    accent: '#a78bfa',
+    accentLight: '#c4b5fd',
+    primary: '#8b5cf6',
+    primaryDark: '#7c3aed',
+    shadow: 'rgba(107, 70, 193, 0.3)',
+    error: '#dc2626',
+    errorLight: '#fca5a5',
+    warning: '#fbbf24',
+  };
+
+  // Extract CSS variables if they exist
+  const rootMatch = cssContent.match(/:root\s*{([^}]*)}/);
+  if (rootMatch) {
+    const rootContent = rootMatch[1];
+    
+    // Parse CSS variables
+    const varPattern = /--([a-zA-Z0-9-]+)\s*:\s*([^;]+);/g;
+    let match;
+    while ((match = varPattern.exec(rootContent)) !== null) {
+      const varName = match[1];
+      const varValue = match[2].trim();
+      
+      // Map common variable names to our color object
+      if (varName.includes('background')) colors.background = varValue;
+      if (varName.includes('foreground') || varName.includes('text')) colors.foreground = varValue;
+      if (varName.includes('border')) colors.border = varValue;
+      if (varName.includes('accent')) colors.accent = varValue;
+      if (varName.includes('primary')) colors.primary = varValue;
+    }
+  }
+
+  // Also try to extract colors from body, .box, and other common selectors
+  const bodyMatch = cssContent.match(/body\s*{([^}]*)}/);
+  if (bodyMatch) {
+    const bgMatch = bodyMatch[1].match(/background:\s*([^;]+);/);
+    if (bgMatch) colors.background = bgMatch[1].trim();
+    
+    const colorMatch = bodyMatch[1].match(/color:\s*([^;]+);/);
+    if (colorMatch) colors.foreground = colorMatch[1].trim();
+  }
+
+  return colors;
+}
+
+function loadCSSColors() {
+  try {
+    const stats = fs.statSync(config.styleSheetPath);
+    const mtime = stats.mtime.getTime();
+    
+    // Check if we need to reload
+    if (!cssColors || cssLastModified !== mtime) {
+      const cssContent = fs.readFileSync(config.styleSheetPath, 'utf8');
+      cssColors = parseCSSColors(cssContent);
+      cssLastModified = mtime;
+      console.log('Loaded CSS colors from:', config.styleSheetPath);
+    }
+    
+    return cssColors;
+  } catch (err) {
+    console.warn('Could not load style.css, using default colors:', err.message);
+    // Return default colors if file doesn't exist
+    return parseCSSColors('');
+  }
+}
 
 // ============================================================
 // SECURITY HELPERS
@@ -206,6 +291,7 @@ function clearAccessCookie(res, name) {
 function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
   const safeRemaining = Math.max(remaining, 1);
   const hasTarget = orig !== null;
+  const colors = loadCSSColors();
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -214,8 +300,8 @@ function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
     <title>${escapeHtml(config.siteName)} - ${escapeHtml(config.gatewayLabel)}</title>
     <style>
         body {
-            background: linear-gradient(135deg, #1a0033 0%, #2d0052 50%, #1a0033 100%);
-            color: #e0d4ff;
+            background: ${colors.background};
+            color: ${colors.foreground};
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             margin: 0;
             min-height: 100vh;
@@ -225,23 +311,23 @@ function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
             justify-content: center;
         }
         .box {
-            background: rgba(45, 0, 82, 0.9);
-            border: 2px solid #6b46c1;
+            background: ${colors.boxBackground};
+            border: 2px solid ${colors.border};
             border-radius: 12px;
             padding: 32px 40px;
             max-width: 520px;
             width: 90%;
-            box-shadow: 0 8px 32px rgba(107, 70, 193, 0.3);
+            box-shadow: 0 8px 32px ${colors.shadow};
             text-align: center;
         }
         h2 {
-            color: #a78bfa;
+            color: ${colors.accent};
             margin: 0 0 8px 0;
             font-size: 28px;
-            text-shadow: 0 0 10px rgba(167, 139, 250, 0.5);
+            text-shadow: 0 0 10px ${colors.shadow};
         }
         .subtitle {
-            color: #c4b5fd;
+            color: ${colors.accentLight};
             font-size: 16px;
             margin-bottom: 20px;
         }
@@ -250,7 +336,7 @@ function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
             width: 100%;
             height: 20px;
             border-radius: 999px;
-            border: 2px solid #8b5cf6;
+            border: 2px solid ${colors.primary};
             overflow: hidden;
             margin: 20px 0 12px 0;
             background: rgba(0, 0, 0, 0.3);
@@ -261,10 +347,10 @@ function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
             left: 0;
             height: 100%;
             width: 0;
-            background: linear-gradient(90deg, #8b5cf6 0%, #a78bfa 100%);
+            background: linear-gradient(90deg, ${colors.primary} 0%, ${colors.accent} 100%);
             animation: fill linear forwards;
             animation-duration: ${safeRemaining}s;
-            box-shadow: 0 0 10px rgba(139, 92, 246, 0.8);
+            box-shadow: 0 0 10px ${colors.shadow};
         }
         @keyframes fill {
             from { width: 0; }
@@ -273,7 +359,7 @@ function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
         .small {
             font-size: 13px;
             opacity: 0.8;
-            color: #c4b5fd;
+            color: ${colors.accentLight};
         }
         .btn {
             display: inline-block;
@@ -281,10 +367,10 @@ function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
             padding: 10px 24px;
             border-radius: 6px;
             text-decoration: none;
-            background: linear-gradient(135deg, #7c3aed 0%, #6b21a8 100%);
+            background: linear-gradient(135deg, ${colors.primaryDark} 0%, ${colors.primary} 100%);
             color: #fff;
             font-weight: 600;
-            border: 1px solid #8b5cf6;
+            border: 1px solid ${colors.primary};
             opacity: 0;
             pointer-events: none;
             animation: showButton 0.5s forwards;
@@ -292,8 +378,8 @@ function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
             transition: all 0.3s ease;
         }
         .btn:hover {
-            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-            box-shadow: 0 0 20px rgba(139, 92, 246, 0.6);
+            background: linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%);
+            box-shadow: 0 0 20px ${colors.shadow};
             transform: translateY(-2px);
         }
         @keyframes showButton {
@@ -305,7 +391,7 @@ function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
         .footer {
             margin-top: 16px;
             font-size: 12px;
-            color: #9333ea;
+            color: ${colors.primary};
             text-align: center;
         }
         .security-badge {
@@ -313,13 +399,13 @@ function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
             margin: 12px 0;
             padding: 6px 12px;
             background: rgba(139, 92, 246, 0.2);
-            border: 1px solid #8b5cf6;
+            border: 1px solid ${colors.primary};
             border-radius: 4px;
             font-size: 11px;
-            color: #c4b5fd;
+            color: ${colors.accentLight};
         }
         .warning {
-            color: #fbbf24;
+            color: ${colors.warning};
             font-weight: 600;
         }
     </style>
@@ -337,7 +423,7 @@ function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
     </div>
 
     <div class="security-badge">
-        🛡️ Protected by Zant Security System
+        [SHIELD] Protected by Zant Security System
     </div>
 
     ${mode === 'first' 
@@ -364,6 +450,8 @@ function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
 }
 
 function renderBlockedPage(seconds, reason = 'too_many_requests') {
+  const colors = loadCSSColors();
+  
   const reasons = {
     too_many_requests: 'You sent too many requests in a short time.',
     suspicious_pattern: 'Suspicious activity detected from your connection.',
@@ -378,8 +466,8 @@ function renderBlockedPage(seconds, reason = 'too_many_requests') {
     <title>Access Blocked - ${escapeHtml(config.gatewayLabel)}</title>
     <style>
         body {
-            background: linear-gradient(135deg, #1a0033 0%, #2d0052 50%, #1a0033 100%);
-            color: #e0d4ff;
+            background: ${colors.background};
+            color: ${colors.foreground};
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             margin: 0;
             min-height: 100vh;
@@ -389,8 +477,8 @@ function renderBlockedPage(seconds, reason = 'too_many_requests') {
             justify-content: center;
         }
         .box {
-            background: rgba(45, 0, 82, 0.9);
-            border: 2px solid #dc2626;
+            background: ${colors.boxBackground};
+            border: 2px solid ${colors.error};
             border-radius: 12px;
             padding: 32px 40px;
             max-width: 520px;
@@ -399,25 +487,25 @@ function renderBlockedPage(seconds, reason = 'too_many_requests') {
             text-align: center;
         }
         h2 {
-            color: #fca5a5;
+            color: ${colors.errorLight};
             margin: 0 0 8px 0;
             font-size: 28px;
             text-shadow: 0 0 10px rgba(252, 165, 165, 0.5);
         }
         .subtitle {
-            color: #c4b5fd;
+            color: ${colors.accentLight};
             font-size: 16px;
             margin-bottom: 20px;
         }
         .small {
             font-size: 13px;
             opacity: 0.8;
-            color: #c4b5fd;
+            color: ${colors.accentLight};
         }
         .footer {
             margin-top: 16px;
             font-size: 12px;
-            color: #9333ea;
+            color: ${colors.primary};
             text-align: center;
         }
         .error-icon {
@@ -425,7 +513,7 @@ function renderBlockedPage(seconds, reason = 'too_many_requests') {
             margin: 16px 0;
         }
         .reason {
-            color: #fbbf24;
+            color: ${colors.warning};
             font-weight: 600;
             margin: 16px 0;
         }
@@ -433,7 +521,7 @@ function renderBlockedPage(seconds, reason = 'too_many_requests') {
 </head>
 <body>
 <div class="box">
-    <div class="error-icon">🚫</div>
+    <div class="error-icon">[X]</div>
     <h2>Access Temporarily Blocked</h2>
     <div class="subtitle">${escapeHtml(config.gatewayLabel)}</div>
 
@@ -478,15 +566,16 @@ function escapeHtml(text) {
 
 function zantGateway(options = {}) {
   const opts = { ...config, ...options };
-
+  
   // Start secret rotation
   if (!secretRotationTimer) {
     secretRotationTimer = setInterval(rotateSecret, opts.rotateSecretInterval * 1000);
   }
 
   return (req, res, next) => {
-    // Skip if already on the queue page
-    if (req.path.startsWith('/_queue')) {
+    // Skip if already on the queue page or accessing static assets
+    if (req.path.startsWith('/_queue') || 
+        req.path.match(/\.(css|js|jpg|jpeg|png|gif|svg|ico|woff|woff2|ttf|webp)$/i)) {
       return next();
     }
 

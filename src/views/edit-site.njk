@@ -1,0 +1,49 @@
+{% extends "layout.njk" %}
+
+{% block title %}Edit {{ site.title }} - Gerudo{% endblock %}
+
+{% block content %}
+<section class="edit-site">
+  <div class="flex-between mb-lg">
+    <h2>Edit Site</h2>
+    <a href="/dashboard" class="btn btn-secondary">← Back to Dashboard</a>
+  </div>
+
+  {% if flash.success %}
+    <div class="flash flash-success">
+      ✓ {{ flash.success }}
+    </div>
+  {% endif %}
+
+  {% if flash.error %}
+    <div class="flash flash-error">
+      ✗ {{ flash.error }}
+    </div>
+  {% endif %}
+
+  <div class="content-wrapper">
+    <form method="POST" action="/dashboard/update-site/{{ site.id }}" class="form">
+      <div class="form-group">
+        <label for="slug">Site Slug:</label>
+        <input type="text" id="slug" name="slug" required 
+               pattern="[a-z0-9-]+" 
+               value="{{ site.slug }}"
+               title="Lowercase letters, numbers, and hyphens only">
+        <small class="text-muted">This will be your site's URL: /{{ site.slug }}</small>
+      </div>
+
+      <div class="form-group">
+        <label for="title">Site Title:</label>
+        <input type="text" id="title" name="title" required
+               maxlength="100"
+               value="{{ site.title }}">
+      </div>
+
+      <div class="flex gap-md">
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <a href="/dashboard" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "layout.njk" %}
+
+{% block title %}{{ title }} - Gerudo{% endblock %}
+
+{% block content %}
+<section class="browse">
+  <h2>Browse Sites</h2>
+  <p class="text-muted">Discover websites created by the Gerudo community</p>
+
+  {% if error %}
+    <div class="flash flash-error">
+      ✗ {{ error }}
+    </div>
+  {% endif %}
+
+  {% if sites.length > 0 %}
+    <div class="sites-grid mt-lg">
+      {% for site in sites %}
+        <div class="site-card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <a href="/~{{ site.slug }}">{{ site.title }}</a>
+            </h3>
+          </div>
+          <p class="site-slug">
+            <a href="/~{{ site.slug }}">/~{{ site.slug }}</a>
+          </p>
+          <p class="text-muted small">
+            By: <strong>{{ site.owner_username }}</strong><br>
+            Created: {{ site.created_at | date('short') }}
+          </p>
+          <div class="card-actions mt-md">
+            <a href="/~{{ site.slug }}" class="btn btn-sm btn-primary">Visit Site →</a>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state mt-lg">
+      <div class="empty-state-icon">🌐</div>
+      <p>No sites yet!</p>
+      <p class="text-muted">Be the first to create one</p>
+      {% if not user %}
+        <a href="/signup" class="btn btn-primary mt-md">Sign Up to Create a Site</a>
+      {% else %}
+        <a href="/dashboard" class="btn btn-primary mt-md">Create Your First Site</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

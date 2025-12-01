@@ -1,67 +1,38 @@
-const db = require("../db");
+// models/User.js
+const { pool } = require("../db");
 
-const Site = {
-  create: ({ ownerId, slug, title }) => {
-    const stmt = db.prepare(`
-      INSERT INTO sites (ownerId, slug, title)
-      VALUES (?, ?, ?)
-    `);
-    const info = stmt.run(ownerId, slug, title);
-    return { 
-      id: info.lastInsertRowid, 
-      ownerId, 
-      slug, 
-      title,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+const User = {
+  async create({ username, passwordHash }) {
+    const result = await pool.query(
+      'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING *',
+      [username, passwordHash]
+    );
+    return result.rows[0];
   },
 
-  findByOwner: (ownerId) => {
-    return db.prepare("SELECT * FROM sites WHERE ownerId = ? ORDER BY createdAt DESC")
-      .all(ownerId);
+  async findByUsername(username) {
+    const result = await pool.query(
+      'SELECT * FROM users WHERE username = $1',
+      [username]
+    );
+    return result.rows[0];
   },
 
-  findById: (id) => {
-    return db.prepare("SELECT * FROM sites WHERE id = ?").get(id);
+  async findById(id) {
+    const result = await pool.query(
+      'SELECT id, username, created_at FROM users WHERE id = $1',
+      [id]
+    );
+    return result.rows[0];
   },
 
-  findBySlug: (slug) => {
-    return db.prepare("SELECT * FROM sites WHERE slug = ?").get(slug);
-  },
-
-  update: ({ id, slug, title }) => {
-    const stmt = db.prepare(`
-      UPDATE sites 
-      SET slug = ?, title = ?, updatedAt = CURRENT_TIMESTAMP 
-      WHERE id = ?
-    `);
-    stmt.run(slug, title, id);
-    return Site.findById(id);
-  },
-
-  delete: (id) => {
-    const stmt = db.prepare("DELETE FROM sites WHERE id = ?");
-    stmt.run(id);
-  },
-
-  // Get all public sites (for homepage or browse page)
-  findAllPublic: (limit = 20) => {
-    return db.prepare(`
-      SELECT s.*, u.username as ownerUsername 
-      FROM sites s
-      JOIN users u ON s.ownerId = u.id
-      ORDER BY s.createdAt DESC
-      LIMIT ?
-    `).all(limit);
-  },
-
-  // Count sites by owner
-  countByOwner: (ownerId) => {
-    const result = db.prepare("SELECT COUNT(*) as count FROM sites WHERE ownerId = ?")
-      .get(ownerId);
-    return result.count;
+  async listSites(userId) {
+    const result = await pool.query(
+      'SELECT * FROM sites WHERE owner_id = $1 ORDER BY created_at DESC',
+      [userId]
+    );
+    return result.rows;
   }
 };
 
-module.exports = Si
+module.exports = User;

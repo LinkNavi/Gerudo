@@ -1,0 +1,24 @@
+{% extends "layout.njk" %}
+
+{% block title %}Error - Gerudo{% endblock %}
+
+{% block content %}
+<div class="content-wrapper text-center">
+  <div class="empty-state">
+    <div class="empty-state-icon">⚠️</div>
+    <h2>Oops! Something went wrong</h2>
+    <p class="text-muted mt-md">
+      {{ message }}
+    </p>
+    {% if error.stack and user %}
+      <details class="mt-md" style="text-align: left; max-width: 800px; margin: 2rem auto;">
+        <summary style="cursor: pointer; color: var(--sage);">Technical Details</summary>
+        <pre style="background: var(--bg-tertiary); padding: 1rem; border-radius: var(--radius-md); overflow-x: auto; margin-top: 1rem;">{{ error.stack }}</pre>
+      </details>
+    {% endif %}
+    <p class="mt-lg">
+      <a href="/" class="btn btn-primary">Go Home</a>
+    </p>
+  </div>
+</div>
+{% endblock %}
