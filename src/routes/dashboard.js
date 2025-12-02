@@ -113,6 +113,109 @@ router.post("/create-site", requireAuth, async (req, res) => {
 });
 
 // ============================================================
+// UPLOAD FILE
+// ============================================================
+router.post("/upload-file/:siteId", requireAuth, async (req, res) => {
+  try {
+    const siteId = parseInt(req.params.siteId, 10);
+    const { path, content, mimeType } = req.body;
+    
+    // Verify site ownership
+    const site = await Site.findById(siteId);
+    if (!site) {
+      req.flash('error', 'Site not found');
+      return res.redirect('/dashboard');
+    }
+    
+    if (site.owner_id !== req.session.userId) {
+      req.flash('error', 'You do not have permission to upload files to this site');
+      return res.redirect('/dashboard');
+    }
+    
+    // Validate path
+    if (!path || typeof path !== 'string') {
+      req.flash('error', 'File path is required');
+      return res.redirect(`/dashboard/site/${site.slug}`);
+    }
+    
+    if (!/^[a-zA-Z0-9._/-]+$/.test(path)) {
+      req.flash('error', 'Invalid file path');
+      return res.redirect(`/dashboard/site/${site.slug}`);
+    }
+    
+    // Validate content
+    if (!content || typeof content !== 'string') {
+      req.flash('error', 'File content is required');
+      return res.redirect(`/dashboard/site/${site.slug}`);
+    }
+    
+    // Limit file size (e.g., 1MB)
+    if (content.length > 1024 * 1024) {
+      req.flash('error', 'File content is too large (max 1MB)');
+      return res.redirect(`/dashboard/site/${site.slug}`);
+    }
+    
+    // Save the file
+    await Site.saveFile({
+      siteId: siteId,
+      path: path.trim(),
+      content: content,
+      mimeType: mimeType || 'text/plain'
+    });
+    
+    req.flash('success', `File "${path}" uploaded successfully!`);
+    res.redirect(`/dashboard/site/${site.slug}`);
+    
+  } catch (err) {
+    console.error('Upload file error:', err);
+    req.flash('error', 'Failed to upload file');
+    res.redirect('/dashboard');
+  }
+});
+
+// ============================================================
+// DELETE FILE
+// ============================================================
+router.post("/delete-file/:siteId/:fileId", requireAuth, async (req, res) => {
+  try {
+    const siteId = parseInt(req.params.siteId, 10);
+    const fileId = parseInt(req.params.fileId, 10);
+    
+    // Verify site ownership
+    const site = await Site.findById(siteId);
+    if (!site) {
+      req.flash('error', 'Site not found');
+      return res.redirect('/dashboard');
+    }
+    
+    if (site.owner_id !== req.session.userId) {
+      req.flash('error', 'You do not have permission to delete files from this site');
+      return res.redirect('/dashboard');
+    }
+    
+    // Get file info for the flash message
+    const files = await Site.listFiles(siteId);
+    const file = files.find(f => f.id === fileId);
+    
+    if (!file) {
+      req.flash('error', 'File not found');
+      return res.redirect(`/dashboard/site/${site.slug}`);
+    }
+    
+    // Delete the file
+    await Site.deleteFile(siteId, file.path);
+    
+    req.flash('success', `File "${file.path}" deleted successfully`);
+    res.redirect(`/dashboard/site/${site.slug}`);
+    
+  } catch (err) {
+    console.error('Delete file error:', err);
+    req.flash('error', 'Failed to delete file');
+    res.redirect('/dashboard');
+  }
+});
+
+// ============================================================
 // EDIT SITE PAGE
 // ============================================================
 router.get("/edit-site/:id", requireAuth, async (req, res) => {
