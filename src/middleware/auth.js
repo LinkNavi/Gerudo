@@ -1,14 +1,26 @@
 // middleware/auth.js
 const User = require("../models/User");
 
-function requireAuth(req, res, next) {
-  if (!req.session.userId) return res.status(401).send("Unauthorized");
+async function requireAuth(req, res, next) {
+  if (!req.session.userId) {
+    req.flash('error', 'Please log in to access this page');
+    return res.redirect('/login');
+  }
 
-  const user = User.findById(req.session.userId);
-  if (!user) return res.status(401).send("Unauthorized");
+  try {
+    const user = await User.findById(req.session.userId);
+    if (!user) {
+      req.session.destroy();
+      req.flash('error', 'Session expired. Please log in again');
+      return res.redirect('/login');
+    }
 
-  req.user = user;
-  next();
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error('Auth middleware error:', err);
+    res.status(500).send('Authentication error');
+  }
 }
 
 module.exports = requireAuth;

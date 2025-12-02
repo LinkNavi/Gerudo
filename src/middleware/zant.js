@@ -20,7 +20,7 @@ const config = {
   queueImageUrl: '/_queue/onion.webp',
   queueCookie: 'zant_q',
   accessCookie: 'zant_a',
-  fingerprintCookie: 'zant_fp', // Browser fingerprint
+  fingerprintCookie: 'zant_fp',
   waitSeconds: 5,
   maxLifetime: 3600,
   maxFails: 3,
@@ -28,20 +28,20 @@ const config = {
   
   // Enhanced security settings
   enableFingerprinting: true,
-  enableProofOfWork: true, // Require computation before access
-  powDifficulty: 4, // Number of leading zeros in hash
-  maxCookieAge: 86400, // 24 hours max cookie age
-  rotateSecretInterval: 3600, // Rotate HMAC key hourly
-  suspiciousPatternThreshold: 10, // Block after this many suspicious patterns
+  enableProofOfWork: true,
+  powDifficulty: 4,
+  maxCookieAge: 86400,
+  rotateSecretInterval: 3600,
+  suspiciousPatternThreshold: 10,
   
   // Rate limiting per fingerprint
   fingerprintRateLimit: {
-    windowMs: 60000, // 1 minute
-    maxRequests: 20, // Max requests per window
+    windowMs: 60000,
+    maxRequests: 20,
   },
   
-  // Path to your main style.css file
-  styleSheetPath: path.join(__dirname, 'src/public/style.css'),
+  // Path to your main style.css file (FIXED PATH)
+  styleSheetPath: path.join(__dirname, '../public/style.css'),
 };
 
 // Store for tracking fingerprints and rate limits
@@ -62,17 +62,17 @@ let cssLastModified = null;
 
 function parseCSSColors(cssContent) {
   const colors = {
-    // Default fallback colors
-    background: 'linear-gradient(135deg, #1a0033 0%, #2d0052 50%, #1a0033 100%)',
-    foreground: '#e0d4ff',
-    boxBackground: 'rgba(45, 0, 82, 0.9)',
-    border: '#6b46c1',
-    accent: '#a78bfa',
-    accentLight: '#c4b5fd',
-    primary: '#8b5cf6',
-    primaryDark: '#7c3aed',
-    shadow: 'rgba(107, 70, 193, 0.3)',
-    error: '#dc2626',
+    // Default fallback colors matching your theme
+    background: 'linear-gradient(135deg, #1a1a1a 0%, #222 50%, #1a1a1a 100%)',
+    foreground: '#eee',
+    boxBackground: 'rgba(34, 34, 34, 0.9)',
+    border: '#9caf88',
+    accent: '#9caf88',
+    accentLight: '#b5c9a2',
+    primary: '#9caf88',
+    primaryDark: '#7b8e76',
+    shadow: 'rgba(156, 175, 136, 0.3)',
+    error: '#ef4444',
     errorLight: '#fca5a5',
     warning: '#fbbf24',
   };
@@ -85,27 +85,22 @@ function parseCSSColors(cssContent) {
     // Parse CSS variables
     const varPattern = /--([a-zA-Z0-9-]+)\s*:\s*([^;]+);/g;
     let match;
-    while ((match = varPattern.exec(rootContent)) !== null) {
-      const varName = match[1];
-      const varValue = match[2].trim();
-      
-      // Map common variable names to our color object
-      if (varName.includes('background')) colors.background = varValue;
-      if (varName.includes('foreground') || varName.includes('text')) colors.foreground = varValue;
-      if (varName.includes('border')) colors.border = varValue;
-      if (varName.includes('accent')) colors.accent = varValue;
-      if (varName.includes('primary')) colors.primary = varValue;
-    }
-  }
-
-  // Also try to extract colors from body, .box, and other common selectors
-  const bodyMatch = cssContent.match(/body\s*{([^}]*)}/);
-  if (bodyMatch) {
-    const bgMatch = bodyMatch[1].match(/background:\s*([^;]+);/);
-    if (bgMatch) colors.background = bgMatch[1].trim();
     
-    const colorMatch = bodyMatch[1].match(/color:\s*([^;]+);/);
-    if (colorMatch) colors.foreground = colorMatch[1].trim();
+    const vars = {};
+    while ((match = varPattern.exec(rootContent)) !== null) {
+      vars[match[1]] = match[2].trim();
+    }
+    
+    // Map variables to our color object
+    if (vars['sage']) colors.primary = vars['sage'];
+    if (vars['sage-dark']) colors.primaryDark = vars['sage-dark'];
+    if (vars['sage-light']) colors.accentLight = vars['sage-light'];
+    if (vars['bg-primary']) colors.background = vars['bg-primary'];
+    if (vars['bg-secondary']) colors.boxBackground = vars['bg-secondary'];
+    if (vars['text-primary']) colors.foreground = vars['text-primary'];
+    if (vars['border-color']) colors.border = vars['border-color'];
+    if (vars['error']) colors.error = vars['error'];
+    if (vars['warning']) colors.warning = vars['warning'];
   }
 
   return colors;
@@ -121,12 +116,12 @@ function loadCSSColors() {
       const cssContent = fs.readFileSync(config.styleSheetPath, 'utf8');
       cssColors = parseCSSColors(cssContent);
       cssLastModified = mtime;
-      console.log('Loaded CSS colors from:', config.styleSheetPath);
+      console.log('✅ Loaded CSS colors from:', config.styleSheetPath);
     }
     
     return cssColors;
   } catch (err) {
-    console.warn('Could not load style.css, using default colors:', err.message);
+    console.warn('⚠️  Could not load style.css, using default colors:', err.message);
     // Return default colors if file doesn't exist
     return parseCSSColors('');
   }
@@ -152,20 +147,17 @@ function getActiveSecret() {
   return currentSecret;
 }
 
-// Browser fingerprinting based on headers (since all Tor traffic comes from 127.0.0.1)
 function generateFingerprint(req) {
   const components = [
     req.headers['user-agent'] || '',
     req.headers['accept-language'] || '',
     req.headers['accept-encoding'] || '',
     req.headers['accept'] || '',
-    // Note: Avoid using headers that change frequently
   ].join('|');
   
   return crypto.createHash('sha256').update(components).digest('hex');
 }
 
-// Enhanced token with additional security fields
 function makeToken(id, allowAt, failCount, banUntil, fingerprint, nonce, secret) {
   const data = `${id}|${allowAt}|${failCount}|${banUntil}|${fingerprint}|${nonce}`;
   const hmac = crypto.createHmac('sha256', secret).update(data).digest('hex');
@@ -194,23 +186,19 @@ function parseToken(token, secret) {
   };
 }
 
-// Check for suspicious patterns
 function detectSuspiciousPattern(req, fingerprint) {
   const patterns = [];
   
-  // Check if User-Agent is missing or suspicious
   if (!req.headers['user-agent'] || req.headers['user-agent'].length < 10) {
     patterns.push('missing_ua');
   }
   
-  // Check for automated tools signatures
   const ua = (req.headers['user-agent'] || '').toLowerCase();
   const suspiciousUAs = ['bot', 'crawler', 'spider', 'scraper', 'curl', 'wget', 'python'];
   if (suspiciousUAs.some(sig => ua.includes(sig))) {
     patterns.push('automated_tool');
   }
   
-  // Check Accept header
   if (!req.headers['accept']) {
     patterns.push('missing_accept');
   }
@@ -218,29 +206,24 @@ function detectSuspiciousPattern(req, fingerprint) {
   return patterns;
 }
 
-// Rate limiting per fingerprint
 function checkRateLimit(fingerprint) {
   const now = Date.now();
   const fpData = fingerprintStore.get(fingerprint) || { requests: [], suspiciousCount: 0 };
   
-  // Clean old requests outside the window
   fpData.requests = fpData.requests.filter(
     timestamp => now - timestamp < config.fingerprintRateLimit.windowMs
   );
   
-  // Check if rate limit exceeded
   if (fpData.requests.length >= config.fingerprintRateLimit.maxRequests) {
     return { allowed: false, reason: 'rate_limit' };
   }
   
-  // Add current request
   fpData.requests.push(now);
   fingerprintStore.set(fingerprint, fpData);
   
   return { allowed: true };
 }
 
-// Global ban list (persists across requests)
 function isGloballyBanned(fingerprint) {
   const banData = banStore.get(fingerprint);
   if (!banData) return false;
@@ -250,7 +233,6 @@ function isGloballyBanned(fingerprint) {
     return { banned: true, until: banData.until, reason: banData.reason };
   }
   
-  // Ban expired
   banStore.delete(fingerprint);
   return false;
 }
@@ -268,7 +250,7 @@ function setQueueCookie(res, name, value, expires) {
   res.cookie(name, value, {
     expires: new Date(expires * 1000),
     path: '/',
-    secure: false, // Set to true for HTTPS on clearnet
+    secure: false,
     httpOnly: true,
     sameSite: 'Lax',
   });
@@ -398,7 +380,7 @@ function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
             display: inline-block;
             margin: 12px 0;
             padding: 6px 12px;
-            background: rgba(139, 92, 246, 0.2);
+            background: rgba(156, 175, 136, 0.2);
             border: 1px solid ${colors.primary};
             border-radius: 4px;
             font-size: 11px;
@@ -417,13 +399,13 @@ function renderQueuePage(remaining, orig, mode = 'first', challenge = null) {
 
     <div class="small">
         <img src="${escapeHtml(config.queueImageUrl)}"
-             alt="Official ${escapeHtml(config.siteName)} .onion address"
+             alt="Official ${escapeHtml(config.siteName)} address"
              style="max-width:100%;margin:8px 0;border-radius:8px;">
-        <div>Always verify the last part of the onion URL.</div>
+        <div>Security verification in progress</div>
     </div>
 
     <div class="security-badge">
-        [SHIELD] Protected by Zant Security System
+        🛡️ Protected by Zant Security System
     </div>
 
     ${mode === 'first' 
@@ -483,7 +465,7 @@ function renderBlockedPage(seconds, reason = 'too_many_requests') {
             padding: 32px 40px;
             max-width: 520px;
             width: 90%;
-            box-shadow: 0 8px 32px rgba(220, 38, 38, 0.3);
+            box-shadow: 0 8px 32px rgba(239, 68, 68, 0.3);
             text-align: center;
         }
         h2 {
@@ -521,23 +503,16 @@ function renderBlockedPage(seconds, reason = 'too_many_requests') {
 </head>
 <body>
 <div class="box">
-    <div class="error-icon">[X]</div>
+    <div class="error-icon">❌</div>
     <h2>Access Temporarily Blocked</h2>
     <div class="subtitle">${escapeHtml(config.gatewayLabel)}</div>
-
-    <div class="small">
-        <img src="${escapeHtml(config.queueImageUrl)}"
-             alt="Official ${escapeHtml(config.siteName)} .onion address"
-             style="max-width:100%;margin:8px 0;border-radius:8px;">
-        <div>Always verify the last part of the onion URL.</div>
-    </div>
 
     <p class="reason">
         ${escapeHtml(reasons[reason] || reasons.too_many_requests)}
     </p>
     
     <p class="small">
-        Please wait a few minutes, or obtain a new Tor identity and try again.<br/>
+        Please wait a few minutes and try again.<br/>
         <strong>Time remaining: ~${Math.ceil(seconds / 60)} minutes</strong>
     </p>
 </div>
@@ -587,23 +562,19 @@ function zantGateway(options = {}) {
       return res.redirect('/');
     }
 
-    // Generate browser fingerprint
     const fingerprint = generateFingerprint(req);
 
-    // Check global ban list
     const globalBan = isGloballyBanned(fingerprint);
     if (globalBan && globalBan.banned) {
       return res.send(renderBlockedPage(globalBan.until - now, globalBan.reason));
     }
 
-    // Check rate limit
     const rateCheck = checkRateLimit(fingerprint);
     if (!rateCheck.allowed) {
       addGlobalBan(fingerprint, opts.banSeconds, 'rate_limit');
       return res.send(renderBlockedPage(opts.banSeconds, 'rate_limit'));
     }
 
-    // Detect suspicious patterns
     const suspiciousPatterns = detectSuspiciousPattern(req, fingerprint);
     if (suspiciousPatterns.length > 0) {
       const fpData = fingerprintStore.get(fingerprint) || { requests: [], suspiciousCount: 0 };
@@ -621,7 +592,6 @@ function zantGateway(options = {}) {
     const queueState = queueRaw ? parseToken(queueRaw, getActiveSecret()) : null;
     const hasAccess = !!req.cookies[opts.accessCookie];
 
-    // First entry - no queue cookie
     if (!queueState) {
       const id = generateId();
       const nonce = generateId();
@@ -635,9 +605,7 @@ function zantGateway(options = {}) {
       return res.send(renderQueuePage(opts.waitSeconds, orig, 'first'));
     }
 
-    // Verify fingerprint matches
     if (queueState.fingerprint !== fingerprint) {
-      // Fingerprint changed - treat as new session
       const id = generateId();
       const nonce = generateId();
       const allowAt = now + opts.waitSeconds;
@@ -649,22 +617,18 @@ function zantGateway(options = {}) {
       return res.send(renderQueuePage(opts.waitSeconds, orig, 'first'));
     }
 
-    // Check ban state
     if (queueState.ban_until > now) {
       const remainingBan = queueState.ban_until - now;
       clearAccessCookie(res, opts.accessCookie);
       return res.send(renderBlockedPage(remainingBan, 'too_many_requests'));
     }
 
-    // Check if waiting time has passed
     const remaining = queueState.allow_at - now;
 
     if (remaining > 0) {
-      // Too early - increase fail count
       let failCount = queueState.fail_count + 1;
 
       if (failCount >= opts.maxFails) {
-        // Ban the user
         const banUntil = now + opts.banSeconds;
         const allowAt = banUntil + opts.waitSeconds;
         failCount = 0;
@@ -681,12 +645,10 @@ function zantGateway(options = {}) {
         setQueueCookie(res, opts.queueCookie, token, now + opts.maxLifetime);
         clearAccessCookie(res, opts.accessCookie);
 
-        // Add to global ban list
         addGlobalBan(fingerprint, opts.banSeconds, 'too_many_requests');
 
         return res.send(renderBlockedPage(opts.banSeconds, 'too_many_requests'));
       } else {
-        // Not banned yet, just too fast
         const token = makeToken(
           queueState.id,
           queueState.allow_at,
@@ -702,7 +664,6 @@ function zantGateway(options = {}) {
       }
     }
 
-    // Waited long enough - grant access
     if (!hasAccess) {
       const accessId = generateId();
       res.cookie(opts.accessCookie, accessId, {
@@ -714,7 +675,6 @@ function zantGateway(options = {}) {
       });
     }
 
-    // Refresh queue state with new nonce
     const newNonce = generateId();
     const token = makeToken(
       queueState.id,
@@ -727,17 +687,14 @@ function zantGateway(options = {}) {
     );
     setQueueCookie(res, opts.queueCookie, token, now + opts.maxLifetime);
 
-    // Continue to the next middleware/route
     next();
   };
 }
 
-// Cleanup on shutdown
 process.on('SIGINT', () => {
   if (secretRotationTimer) {
     clearInterval(secretRotationTimer);
   }
 });
 
-// Export for use as a module
 module.exports = { zantGateway, config };

@@ -8,6 +8,7 @@ const pgSession = require('connect-pg-simple')(session);
 const nunjucks = require("nunjucks");
 const path = require("path");
 const cookieParser = require('cookie-parser');
+const crypto = require('crypto');
 
 const { pool, initDatabase } = require("./db");
 const User = require("./models/User");
@@ -57,19 +58,76 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan("dev"));
 }
 
+// Enhanced helmet configuration
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for flash messages
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  },
 }));
 
 app.use(compression());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' })); // Limit payload size
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+
+// ============================================================
+// RATE LIMITING (Basic)
+// ============================================================
+const requestCounts = new Map();
+
+app.use((req, res, next) => {
+  const ip = req.ip;
+  const now = Date.now();
+  
+  if (!requestCounts.has(ip)) {
+    requestCounts.set(ip, []);
+  }
+  
+  const requests = requestCounts.get(ip);
+  // Keep only requests from the last minute
+  const recentRequests = requests.filter(time => now - time < 60000);
+  
+  if (recentRequests.length > 100) {
+    return res.status(429).send('Too many requests');
+  }
+  
+  recentRequests.push(now);
+  requestCounts.set(ip, recentRequests);
+  
+  // Cleanup old entries periodically
+  if (Math.random() < 0.01) {
+    for (const [key, value] of requestCounts.entries()) {
+      if (value.length === 0 || now - value[value.length - 1] > 300000) {
+        requestCounts.delete(key);
+      }
+    }
+  }
+  
+  next();
+});
 
 // ============================================================
 // STATIC FILES
 // ============================================================
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "public"), {
+  maxAge: '1d',
+  etag: true,
+}));
 
 app.get('/_queue/onion.webp', (req, res) => {
   res.sendFile(path.join(__dirname, 'onion.webp'));
@@ -110,9 +168,10 @@ app.use(
       tableName: 'session',
       createTableIfMissing: true
     }),
-    secret: process.env.SESSION_SECRET || "change-me-in-production",
+    secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
     saveUninitialized: false,
+    name: 'gerudo.sid', // Custom session cookie name
     cookie: { 
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true, 
@@ -137,6 +196,7 @@ app.use(async (req, res, next) => {
     } catch (err) {
       console.error('Error loading user:', err);
       res.locals.user = null;
+      req.session.destroy(); // Clear invalid session
     }
   } else {
     res.locals.user = null;
@@ -155,6 +215,25 @@ app.use((req, res, next) => {
     req.session.flash = req.session.flash || {};
     req.session.flash[type] = message;
   };
+  
+  next();
+});
+
+// ============================================================
+// SECURITY HEADERS
+// ============================================================
+app.use((req, res, next) => {
+  // Prevent clickjacking
+  res.setHeader('X-Frame-Options', 'DENY');
+  
+  // Prevent MIME type sniffing
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  
+  // Referrer policy
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // Permissions policy
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
   
   next();
 });
@@ -179,6 +258,7 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   console.error('Error:', err);
   
+  // Don't leak error details in production
   const message = process.env.NODE_ENV === 'production' 
     ? 'Something went wrong' 
     : err.message;
@@ -200,11 +280,24 @@ app.listen(PORT, HOST, () => {
   console.log(`🚀 Gerudo server running on http://${HOST}:${PORT}`);
   console.log(`📁 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🗄️  Database: PostgreSQL`);
+  console.log(`🛡️  Zant Gateway: Active`);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, closing server...');
-  await pool.end();
-  process.exit(0);
-});
+// ============================================================
+// GRACEFUL SHUTDOWN
+// ============================================================
+const gracefulShutdown = async () => {
+  console.log('Shutting down gracefully...');
+  
+  try {
+    await pool.end();
+    console.log('Database connections closed');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during shutdown:', err);
+    process.exit(1);
+  }
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);

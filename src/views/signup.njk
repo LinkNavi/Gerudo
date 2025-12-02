@@ -1,21 +1,46 @@
 {% extends "layout.njk" %}
 
-{% block title %}Log-In - Gerudo{% endblock %}
+{% block title %}Sign Up - Gerudo{% endblock %}
 
 {% block content %}
-<div class="login-container">
-  <form class="login-form" method="POST" action="/auth/signup">
-    <h2>Log In</h2>
+<div class="form-container">
+  <form class="form" method="POST" action="/auth/signup">
+    <h2>Create Account</h2>
 
-    <label for="username">Username:</label>
-    <input type="text" id="username" name="username" required>
+    {% if flash.error %}
+      <div class="flash flash-error">
+        ✗ {{ flash.error }}
+      </div>
+    {% endif %}
 
-    <label for="password">Password:</label>
-    <input type="password" id="password" name="password" required>
+    <div class="form-group">
+      <label for="username">Username:</label>
+      <input type="text" id="username" name="username" required 
+             pattern="[a-zA-Z0-9_]+" 
+             minlength="3"
+             maxlength="20"
+             placeholder="Choose a username"
+             autocomplete="username"
+             title="3-20 characters, letters, numbers, and underscores only">
+      <small class="text-muted">3-20 characters, letters, numbers, and underscores only</small>
+    </div>
 
-    <button type="submit">Sign Up</button>
+    <div class="form-group">
+      <label for="password">Password:</label>
+      <input type="password" id="password" name="password" required
+             minlength="8"
+             maxlength="128"
+             placeholder="Choose a strong password"
+             autocomplete="new-password"
+             title="At least 8 characters">
+      <small class="text-muted">At least 8 characters</small>
+    </div>
 
-    <p>Already have an account? <a href="/login">Login here</a>.</p>
+    <button type="submit" class="btn btn-primary">Sign Up</button>
+
+    <p class="text-center text-muted mt-md">
+      Already have an account? <a href="/login">Log in here</a>.
+    </p>
   </form>
 </div>
 {% endblock %}

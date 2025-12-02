@@ -56,56 +56,47 @@ router.post("/signup", async (req, res) => {
     // Validate username
     const usernameValidation = validateUsername(username);
     if (!usernameValidation.valid) {
-      return res.status(400).json({ 
-        error: usernameValidation.error 
-      });
+      req.flash('error', usernameValidation.error);
+      return res.redirect('/signup');
     }
     
     // Validate password
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
-      return res.status(400).json({ 
-        error: passwordValidation.error 
-      });
+      req.flash('error', passwordValidation.error);
+      return res.redirect('/signup');
     }
     
-    // Check if user already exists
-    const existingUser = User.findByUsername(username);
+    // Check if user already exists (AWAIT THIS!)
+    const existingUser = await User.findByUsername(username);
     if (existingUser) {
-      return res.status(400).json({ 
-        error: 'Username already taken' 
-      });
+      req.flash('error', 'Username already taken');
+      return res.redirect('/signup');
     }
     
     // Hash password (bcrypt 12 rounds is good balance of security/speed)
     const passwordHash = await bcrypt.hash(password, 12);
     
-    // Create user
-    const user = User.create({ username, passwordHash });
+    // Create user (AWAIT THIS!)
+    const user = await User.create({ username, passwordHash });
     
     // Regenerate session to prevent session fixation attacks
     req.session.regenerate((err) => {
       if (err) {
         console.error('Session regeneration error:', err);
-        return res.status(500).json({ 
-          error: 'Failed to create session' 
-        });
+        req.flash('error', 'Failed to create session');
+        return res.redirect('/signup');
       }
       
       req.session.userId = user.id;
       req.flash('success', `Welcome to Gerudo, ${username}!`);
-      
-      res.json({ 
-        success: true,
-        redirect: '/dashboard'
-      });
+      res.redirect('/dashboard');
     });
     
   } catch (err) {
     console.error('Signup error:', err);
-    res.status(500).json({ 
-      error: 'An error occurred during signup' 
-    });
+    req.flash('error', 'An error occurred during signup');
+    res.redirect('/signup');
   }
 });
 
@@ -119,51 +110,42 @@ router.post("/login", async (req, res) => {
     
     // Basic validation
     if (!username || !password) {
-      return res.status(400).json({ 
-        error: 'Username and password are required' 
-      });
+      req.flash('error', 'Username and password are required');
+      return res.redirect('/login');
     }
     
-    // Find user
-    const user = User.findByUsername(username);
+    // Find user (AWAIT THIS!)
+    const user = await User.findByUsername(username);
     if (!user) {
       // Don't reveal whether username exists
-      return res.status(401).json({ 
-        error: 'Invalid username or password' 
-      });
+      req.flash('error', 'Invalid username or password');
+      return res.redirect('/login');
     }
     
     // Verify password
-    const valid = await bcrypt.compare(password, user.passwordHash);
+    const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      return res.status(401).json({ 
-        error: 'Invalid username or password' 
-      });
+      req.flash('error', 'Invalid username or password');
+      return res.redirect('/login');
     }
     
     // Regenerate session
     req.session.regenerate((err) => {
       if (err) {
         console.error('Session regeneration error:', err);
-        return res.status(500).json({ 
-          error: 'Failed to create session' 
-        });
+        req.flash('error', 'Failed to create session');
+        return res.redirect('/login');
       }
       
       req.session.userId = user.id;
       req.flash('success', `Welcome back, ${username}!`);
-      
-      res.json({ 
-        success: true,
-        redirect: '/dashboard'
-      });
+      res.redirect('/dashboard');
     });
     
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ 
-      error: 'An error occurred during login' 
-    });
+    req.flash('error', 'An error occurred during login');
+    res.redirect('/login');
   }
 });
 
@@ -175,15 +157,11 @@ router.post("/logout", (req, res) => {
   req.session.destroy((err) => {
     if (err) {
       console.error('Logout error:', err);
-      return res.status(500).json({ 
-        error: 'Failed to logout' 
-      });
+      req.flash('error', 'Failed to logout');
+      return res.redirect('/');
     }
     
-    res.json({ 
-      success: true,
-      redirect: '/'
-    });
+    res.redirect('/');
   });
 });
 
