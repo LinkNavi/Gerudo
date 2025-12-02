@@ -8,7 +8,7 @@
     <div>
       <h2>{{ site.title }}</h2>
       <p class="text-muted">
-        <a href="/~{{ site.slug }}">/~{{ site.slug }}</a>
+        <a href="/~{{ user.username }}/{{ site.slug }}" target="_blank">/~{{ user.username }}/{{ site.slug }}</a>
       </p>
     </div>
     <a href="/dashboard" class="btn btn-secondary">← Back to Dashboard</a>
@@ -33,7 +33,7 @@
       </div>
       <dl style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem;">
         <dt style="font-weight: 600; color: var(--sage);">Owner:</dt>
-        <dd>{{ site.owner_username }}</dd>
+        <dd>{{ user.username }}</dd>
         
         <dt style="font-weight: 600; color: var(--sage);">Created:</dt>
         <dd>{{ site.created_at | date('short') }}</dd>
@@ -41,16 +41,20 @@
         <dt style="font-weight: 600; color: var(--sage);">Last Updated:</dt>
         <dd>{{ site.updated_at | date('short') }}</dd>
         
+        <dt style="font-weight: 600; color: var(--sage);">Storage Used:</dt>
+        <dd>{{ (totalSize / 1024) | round(2) }} KB / 10 MB</dd>
+        
         <dt style="font-weight: 600; color: var(--sage);">Public URL:</dt>
-        <dd><a href="/~{{ site.slug }}" target="_blank">/~{{ site.slug }}</a></dd>
+        <dd><a href="/~{{ user.username }}/{{ site.slug }}" target="_blank">/~{{ user.username }}/{{ site.slug }}</a></dd>
       </dl>
     </div>
 
     <div class="card mt-lg">
       <div class="card-header">
-        <h3 class="card-title">Site Files</h3>
+        <h3 class="card-title">Site Files ({{ files.length }})</h3>
         <div class="card-actions">
-          <a href="#upload-file" class="btn btn-sm btn-primary">+ Upload File</a>
+          <a href="#upload-text" class="btn btn-sm btn-secondary">📝 Text Editor</a>
+          <a href="#upload-file" class="btn btn-sm btn-primary">📁 Upload Files</a>
         </div>
       </div>
 
@@ -60,6 +64,7 @@
             <tr style="border-bottom: 2px solid var(--border-color);">
               <th style="text-align: left; padding: 0.5rem; color: var(--sage);">File Path</th>
               <th style="text-align: left; padding: 0.5rem; color: var(--sage);">Type</th>
+              <th style="text-align: right; padding: 0.5rem; color: var(--sage);">Size</th>
               <th style="text-align: right; padding: 0.5rem; color: var(--sage);">Updated</th>
               <th style="text-align: right; padding: 0.5rem; color: var(--sage);">Actions</th>
             </tr>
@@ -69,9 +74,9 @@
               <tr style="border-bottom: 1px solid var(--border-color);">
                 <td style="padding: 0.75rem; font-family: monospace;">{{ file.path }}</td>
                 <td style="padding: 0.75rem;">{{ file.mime_type or 'unknown' }}</td>
+                <td style="padding: 0.75rem; text-align: right;">{{ (file.size / 1024) | round(2) }} KB</td>
                 <td style="padding: 0.75rem; text-align: right;">{{ file.updated_at | date('short') }}</td>
                 <td style="padding: 0.75rem; text-align: right;">
-                  <a href="#edit-{{ file.id }}" class="btn btn-sm btn-secondary">Edit</a>
                   <form method="POST" action="/dashboard/delete-file/{{ site.id }}/{{ file.id }}" 
                         style="display:inline;" 
                         onsubmit="return confirm('Delete {{ file.path }}?');">
@@ -105,19 +110,19 @@
           </iframe>
         </div>
         <p class="text-muted small mt-md">
-          This is a preview of your site. <a href="/~{{ site.slug }}" target="_blank">View full site →</a>
+          This is a preview of your site. <a href="/~{{ user.username }}/{{ site.slug }}" target="_blank">View full site →</a>
         </p>
       </div>
     {% endif %}
   </div>
 </section>
 
-<!-- Upload File Modal -->
-<div id="upload-file" class="modal">
-  <div class="modal-content">
+<!-- Text Editor Modal -->
+<div id="upload-text" class="modal">
+  <div class="modal-content" style="max-width: 800px;">
     <a href="#" class="modal-close">&times;</a>
-    <h3>Upload File</h3>
-    <form method="POST" action="/dashboard/upload-file/{{ site.id }}" class="form" enctype="multipart/form-data">
+    <h3>Text Editor</h3>
+    <form method="POST" action="/dashboard/upload-file/{{ site.id }}" class="form">
       <div class="form-group">
         <label for="file-path">File Path:</label>
         <input type="text" id="file-path" name="path" required 
@@ -129,7 +134,7 @@
 
       <div class="form-group">
         <label for="file-content">File Content:</label>
-        <textarea id="file-content" name="content" rows="15" required
+        <textarea id="file-content" name="content" rows="20" required
                   style="font-family: 'Courier New', monospace; font-size: 0.9rem;"
                   placeholder="Paste your HTML, CSS, or JS code here..."></textarea>
       </div>
@@ -142,11 +147,130 @@
           <option value="application/javascript">JavaScript</option>
           <option value="text/plain">Plain Text</option>
           <option value="image/svg+xml">SVG</option>
+          <option value="application/json">JSON</option>
+          <option value="text/markdown">Markdown</option>
         </select>
       </div>
 
-      <button type="submit" class="btn btn-primary">Upload File</button>
+      <button type="submit" class="btn btn-primary">Save File</button>
     </form>
+  </div>
+</div>
+
+<!-- File Upload Modal with Drag-and-Drop -->
+<div id="upload-file" class="modal">
+  <div class="modal-content" style="max-width: 600px;">
+    <a href="#" class="modal-close">&times;</a>
+    <h3>Upload Files</h3>
+    
+    <div id="drop-zone" style="
+      border: 3px dashed var(--sage);
+      border-radius: var(--radius-lg);
+      padding: 3rem 2rem;
+      text-align: center;
+      background: var(--bg-tertiary);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    ">
+      <div style="font-size: 3rem; margin-bottom: 1rem;">📁</div>
+      <h4 style="color: var(--sage); margin-bottom: 0.5rem;">Drag & Drop Files Here</h4>
+      <p class="text-muted">or click to browse</p>
+      <input type="file" id="file-input" multiple style="display: none;">
+      <p class="text-muted small mt-md">Max 5MB per file | 10MB total per site</p>
+    </div>
+
+    <div id="upload-status" style="margin-top: 1rem; display: none;">
+      <h4>Uploading...</h4>
+      <div id="upload-list"></div>
+    </div>
+
+    <script>
+      (function() {
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const uploadStatus = document.getElementById('upload-status');
+        const uploadList = document.getElementById('upload-list');
+        const siteId = {{ site.id }};
+
+        // Click to browse
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        // Drag and drop handlers
+        dropZone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          dropZone.style.borderColor = 'var(--sage-light)';
+          dropZone.style.background = 'var(--bg-hover)';
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+          dropZone.style.borderColor = 'var(--sage)';
+          dropZone.style.background = 'var(--bg-tertiary)';
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          dropZone.style.borderColor = 'var(--sage)';
+          dropZone.style.background = 'var(--bg-tertiary)';
+          handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+          handleFiles(e.target.files);
+        });
+
+        async function handleFiles(files) {
+          if (files.length === 0) return;
+
+          uploadStatus.style.display = 'block';
+          uploadList.innerHTML = '';
+
+          for (const file of files) {
+            await uploadFile(file);
+          }
+
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        }
+
+        async function uploadFile(file) {
+          const statusItem = document.createElement('div');
+          statusItem.style.padding = '0.5rem';
+          statusItem.style.marginBottom = '0.5rem';
+          statusItem.style.background = 'var(--bg-tertiary)';
+          statusItem.style.borderRadius = 'var(--radius-sm)';
+          statusItem.textContent = `📄 ${file.name} - Uploading...`;
+          uploadList.appendChild(statusItem);
+
+          try {
+            const response = await fetch(`/dashboard/upload-binary/${siteId}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': file.type || 'application/octet-stream',
+                'X-Filename': file.name
+              },
+              body: file
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+              statusItem.textContent = `✓ ${file.name} - Uploaded successfully!`;
+              statusItem.style.background = 'var(--success)';
+              statusItem.style.color = 'white';
+            } else {
+              statusItem.textContent = `✗ ${file.name} - ${result.error}`;
+              statusItem.style.background = 'var(--error)';
+              statusItem.style.color = 'white';
+            }
+          } catch (error) {
+            statusItem.textContent = `✗ ${file.name} - Upload failed`;
+            statusItem.style.background = 'var(--error)';
+            statusItem.style.color = 'white';
+          }
+        }
+      })();
+    </script>
   </div>
 </div>
 {% endblock %}

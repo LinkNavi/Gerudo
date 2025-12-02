@@ -22,14 +22,28 @@ async function initDatabase() {
       )
     `);
 
+    // Drop old unique constraint if it exists and create new composite unique constraint
+    await client.query(`
+      DO $$ 
+      BEGIN
+        -- Drop old constraint if it exists
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'sites_slug_key'
+        ) THEN
+          ALTER TABLE sites DROP CONSTRAINT sites_slug_key;
+        END IF;
+      END $$;
+    `);
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS sites (
         id SERIAL PRIMARY KEY,
         owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        slug VARCHAR(100) UNIQUE NOT NULL,
+        slug VARCHAR(100) NOT NULL,
         title VARCHAR(200),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(owner_id, slug)
       )
     `);
 
@@ -40,6 +54,7 @@ async function initDatabase() {
         path VARCHAR(500) NOT NULL,
         content TEXT,
         mime_type VARCHAR(100),
+        size INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(site_id, path)

@@ -26,9 +26,22 @@ const Site = {
     return result.rows[0];
   },
 
+  // NEW: Find by username AND slug (username-scoped)
+  async findByUsernameAndSlug(username, slug) {
+    const result = await pool.query(
+      `SELECT s.*, u.username as owner_username 
+       FROM sites s 
+       JOIN users u ON s.owner_id = u.id 
+       WHERE u.username = $1 AND s.slug = $2`,
+      [username, slug]
+    );
+    return result.rows[0];
+  },
+
+  // Keep old method for backward compatibility but mark as deprecated
   async findBySlug(slug) {
     const result = await pool.query(
-      'SELECT s.*, u.username as owner_username FROM sites s JOIN users u ON s.owner_id = u.id WHERE s.slug = $1',
+      'SELECT s.*, u.username as owner_username FROM sites s JOIN users u ON s.owner_id = u.id WHERE s.slug = $1 LIMIT 1',
       [slug]
     );
     return result.rows[0];
@@ -67,14 +80,14 @@ const Site = {
   },
 
   // File management
-  async saveFile({ siteId, path, content, mimeType }) {
+  async saveFile({ siteId, path, content, mimeType, size }) {
     const result = await pool.query(
-      `INSERT INTO site_files (site_id, path, content, mime_type)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO site_files (site_id, path, content, mime_type, size)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (site_id, path) 
-       DO UPDATE SET content = $3, mime_type = $4, updated_at = CURRENT_TIMESTAMP
+       DO UPDATE SET content = $3, mime_type = $4, size = $5, updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
-      [siteId, path, content, mimeType]
+      [siteId, path, content, mimeType, size || content.length]
     );
     return result.rows[0];
   },
@@ -100,6 +113,15 @@ const Site = {
       'DELETE FROM site_files WHERE site_id = $1 AND path = $2',
       [siteId, path]
     );
+  },
+
+  // Get total size of all files for a site
+  async getSiteTotalSize(siteId) {
+    const result = await pool.query(
+      'SELECT COALESCE(SUM(size), 0) as total_size FROM site_files WHERE site_id = $1',
+      [siteId]
+    );
+    return parseInt(result.rows[0].total_size);
   }
 };
 

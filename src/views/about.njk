@@ -1,0 +1,81 @@
+{% extends "layout.njk" %}
+
+{% block title %}About - Gerudo{% endblock %}
+
+{% block content %}
+<section class="content-wrapper">
+  <h2>About Gerudo</h2>
+  
+  <div class="card mt-lg">
+    <h3 style="color: var(--sage);">What is Gerudo?</h3>
+    <p>
+      Gerudo is a free web hosting platform inspired by Neocities. It provides a simple, 
+      accessible way for anyone to create and publish their own websites without requiring 
+      advanced technical knowledge.
+    </p>
+  </div>
+
+  <div class="card mt-lg">
+    <h3 style="color: var(--sage);">Philosophy</h3>
+    <p>
+      We believe the web should be a place for creativity, learning, and personal expression. 
+      Gerudo aims to capture the spirit of the early web while incorporating modern security 
+      and usability practices.
+    </p>
+    <p class="mt-md">
+      This platform is built entirely without client-side JavaScript, demonstrating that 
+      modern web applications can be:
+    </p>
+    <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+      <li>Accessible to all users</li>
+      <li>Fast and lightweight</li>
+      <li>Privacy-respecting</li>
+      <li>Functional without JavaScript</li>
+    </ul>
+  </div>
+
+  <div class="card mt-lg">
+    <h3 style="color: var(--sage);">Features</h3>
+    <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+      <li><strong>Free Hosting:</strong> Create and host multiple websites at no cost</li>
+      <li><strong>Simple Interface:</strong> Easy-to-use dashboard for managing your sites</li>
+      <li><strong>Full Control:</strong> Upload HTML, CSS, and JavaScript files</li>
+      <li><strong>Community:</strong> Browse and discover sites created by others</li>
+      <li><strong>Secure:</strong> Modern security practices protect your data</li>
+      <li><strong>No Ads:</strong> Clean, ad-free experience</li>
+    </ul>
+  </div>
+
+  <div class="card mt-lg">
+    <h3 style="color: var(--sage);">Technology Stack</h3>
+    <p>Gerudo is built with:</p>
+    <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+      <li><strong>Backend:</strong> Node.js + Express</li>
+      <li><strong>Database:</strong> PostgreSQL</li>
+      <li><strong>Templates:</strong> Nunjucks</li>
+      <li><strong>Security:</strong> bcrypt, Helmet, custom anti-DDoS (Zant Gateway)</li>
+      <li><strong>Philosophy:</strong> Progressive enhancement, no client-side JS</li>
+    </ul>
+  </div>
+
+  <div class="card mt-lg">
+    <h3 style="color: var(--sage);">Getting Started</h3>
+    <p>Ready to create your first website?</p>
+    <div class="flex-center gap-md mt-md">
+      {% if not user %}
+        <a href="/signup" class="btn btn-primary">Sign Up</a>
+        <a href="/browse" class="btn btn-secondary">Browse Sites</a>
+      {% else %}
+        <a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>
+        <a href="/browse" class="btn btn-secondary">Browse Sites</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="text-center mt-xl">
+    <p class="text-muted">
+      Questions or feedback? Feel free to reach out!
+    </p>
+  </div>
+</section>
+{% endblock %}

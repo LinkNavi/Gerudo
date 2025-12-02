@@ -9,7 +9,6 @@ router.get("/", (req, res) => {
 
 // Login page
 router.get("/login", (req, res) => {
-  // Redirect if already logged in
   if (req.session.userId) {
     return res.redirect('/dashboard');
   }
@@ -18,7 +17,6 @@ router.get("/login", (req, res) => {
 
 // Register page
 router.get("/signup", (req, res) => {
-  // Redirect if already logged in
   if (req.session.userId) {
     return res.redirect('/dashboard');
   }
@@ -48,16 +46,16 @@ router.get("/browse", async (req, res) => {
   }
 });
 
-// View individual site
-router.get("/~:slug", async (req, res) => {
+// View individual site - NEW FORMAT: /~username/sitename
+router.get("/~:username/:slug", async (req, res) => {
   try {
-    const slug = req.params.slug;
-    const site = await Site.findBySlug(slug);
+    const { username, slug } = req.params;
+    const site = await Site.findByUsernameAndSlug(username, slug);
     
     if (!site) {
       return res.status(404).render("404.njk", {
         title: "Site Not Found",
-        message: `No site found with slug "${slug}"`
+        message: `No site found at /~${username}/${slug}`
       });
     }
     
@@ -82,6 +80,32 @@ router.get("/~:slug", async (req, res) => {
       title: "Error",
       message: "Failed to load site"
     });
+  }
+});
+
+// Serve individual files from a site - NEW: /~username/sitename/path/to/file.ext
+router.get("/~:username/:slug/*", async (req, res) => {
+  try {
+    const { username, slug } = req.params;
+    const filePath = req.params[0]; // Everything after /~username/slug/
+    
+    const site = await Site.findByUsernameAndSlug(username, slug);
+    if (!site) {
+      return res.status(404).send('Site not found');
+    }
+    
+    const file = await Site.getFile(site.id, filePath);
+    if (!file || !file.content) {
+      return res.status(404).send('File not found');
+    }
+    
+    // Set appropriate content type
+    res.type(file.mime_type || 'text/plain');
+    res.send(file.content);
+    
+  } catch (err) {
+    console.error('Serve file error:', err);
+    res.status(500).send('Error loading file');
   }
 });
 

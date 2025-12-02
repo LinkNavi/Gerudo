@@ -19,18 +19,18 @@
         <div class="site-card">
           <div class="card-header">
             <h3 class="card-title">
-              <a href="/~{{ site.slug }}">{{ site.title }}</a>
+              <a href="/~{{ site.owner_username }}/{{ site.slug }}">{{ site.title }}</a>
             </h3>
           </div>
           <p class="site-slug">
-            <a href="/~{{ site.slug }}">/~{{ site.slug }}</a>
+            <a href="/~{{ site.owner_username }}/{{ site.slug }}">/~{{ site.owner_username }}/{{ site.slug }}</a>
           </p>
           <p class="text-muted small">
             By: <strong>{{ site.owner_username }}</strong><br>
             Created: {{ site.created_at | date('short') }}
           </p>
           <div class="card-actions mt-md">
-            <a href="/~{{ site.slug }}" class="btn btn-sm btn-primary">Visit Site →</a>
+            <a href="/~{{ site.owner_username }}/{{ site.slug }}" class="btn btn-sm btn-primary">Visit Site →</a>
           </div>
         </div>
       {% endfor %}

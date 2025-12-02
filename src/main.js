@@ -154,7 +154,7 @@ app.use((req, res, next) => {
     maxFails: 3,
     banSeconds: 300,
     enableFingerprinting: true,
-    suspiciousPatternThreshold: 10
+    suspiciousPatternThreshold: 99
   })(req, res, next);
 });
 
