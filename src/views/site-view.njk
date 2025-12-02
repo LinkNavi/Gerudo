@@ -1,0 +1,152 @@
+{% extends "layout.njk" %}
+
+{% block title %}{{ site.title }} - Gerudo{% endblock %}
+
+{% block content %}
+<section class="site-view">
+  <div class="flex-between mb-lg">
+    <div>
+      <h2>{{ site.title }}</h2>
+      <p class="text-muted">
+        <a href="/~{{ site.slug }}">/~{{ site.slug }}</a>
+      </p>
+    </div>
+    <a href="/dashboard" class="btn btn-secondary">← Back to Dashboard</a>
+  </div>
+
+  {% if flash.success %}
+    <div class="flash flash-success">
+      ✓ {{ flash.success }}
+    </div>
+  {% endif %}
+
+  {% if flash.error %}
+    <div class="flash flash-error">
+      ✗ {{ flash.error }}
+    </div>
+  {% endif %}
+
+  <div class="content-wrapper">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Site Information</h3>
+      </div>
+      <dl style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem;">
+        <dt style="font-weight: 600; color: var(--sage);">Owner:</dt>
+        <dd>{{ site.owner_username }}</dd>
+        
+        <dt style="font-weight: 600; color: var(--sage);">Created:</dt>
+        <dd>{{ site.created_at | date('short') }}</dd>
+        
+        <dt style="font-weight: 600; color: var(--sage);">Last Updated:</dt>
+        <dd>{{ site.updated_at | date('short') }}</dd>
+        
+        <dt style="font-weight: 600; color: var(--sage);">Public URL:</dt>
+        <dd><a href="/~{{ site.slug }}" target="_blank">/~{{ site.slug }}</a></dd>
+      </dl>
+    </div>
+
+    <div class="card mt-lg">
+      <div class="card-header">
+        <h3 class="card-title">Site Files</h3>
+        <div class="card-actions">
+          <a href="#upload-file" class="btn btn-sm btn-primary">+ Upload File</a>
+        </div>
+      </div>
+
+      {% if files.length > 0 %}
+        <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+          <thead>
+            <tr style="border-bottom: 2px solid var(--border-color);">
+              <th style="text-align: left; padding: 0.5rem; color: var(--sage);">File Path</th>
+              <th style="text-align: left; padding: 0.5rem; color: var(--sage);">Type</th>
+              <th style="text-align: right; padding: 0.5rem; color: var(--sage);">Updated</th>
+              <th style="text-align: right; padding: 0.5rem; color: var(--sage);">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for file in files %}
+              <tr style="border-bottom: 1px solid var(--border-color);">
+                <td style="padding: 0.75rem; font-family: monospace;">{{ file.path }}</td>
+                <td style="padding: 0.75rem;">{{ file.mime_type or 'unknown' }}</td>
+                <td style="padding: 0.75rem; text-align: right;">{{ file.updated_at | date('short') }}</td>
+                <td style="padding: 0.75rem; text-align: right;">
+                  <a href="#edit-{{ file.id }}" class="btn btn-sm btn-secondary">Edit</a>
+                  <form method="POST" action="/dashboard/delete-file/{{ site.id }}/{{ file.id }}" 
+                        style="display:inline;" 
+                        onsubmit="return confirm('Delete {{ file.path }}?');">
+                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state mt-md">
+          <div class="empty-state-icon">📄</div>
+          <p>No files uploaded yet.</p>
+          <p class="text-muted">Upload an index.html file to get started!</p>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if indexFile %}
+      <div class="card mt-lg">
+        <div class="card-header">
+          <h3 class="card-title">Preview</h3>
+        </div>
+        <div style="background: white; padding: 1rem; border-radius: var(--radius-md); margin-top: 1rem;">
+          <iframe 
+            srcdoc="{{ indexFile.content }}" 
+            style="width: 100%; height: 400px; border: 1px solid var(--border-color); border-radius: var(--radius-sm);"
+            sandbox="allow-scripts allow-same-origin"
+            title="Site preview">
+          </iframe>
+        </div>
+        <p class="text-muted small mt-md">
+          This is a preview of your site. <a href="/~{{ site.slug }}" target="_blank">View full site →</a>
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- Upload File Modal -->
+<div id="upload-file" class="modal">
+  <div class="modal-content">
+    <a href="#" class="modal-close">&times;</a>
+    <h3>Upload File</h3>
+    <form method="POST" action="/dashboard/upload-file/{{ site.id }}" class="form" enctype="multipart/form-data">
+      <div class="form-group">
+        <label for="file-path">File Path:</label>
+        <input type="text" id="file-path" name="path" required 
+               placeholder="index.html"
+               pattern="[a-zA-Z0-9._/-]+"
+               title="Valid file path (e.g., index.html, style.css, images/logo.png)">
+        <small class="text-muted">Example: index.html, style.css, js/script.js</small>
+      </div>
+
+      <div class="form-group">
+        <label for="file-content">File Content:</label>
+        <textarea id="file-content" name="content" rows="15" required
+                  style="font-family: 'Courier New', monospace; font-size: 0.9rem;"
+                  placeholder="Paste your HTML, CSS, or JS code here..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="mime-type">File Type:</label>
+        <select id="mime-type" name="mimeType" required>
+          <option value="text/html">HTML</option>
+          <option value="text/css">CSS</option>
+          <option value="application/javascript">JavaScript</option>
+          <option value="text/plain">Plain Text</option>
+          <option value="image/svg+xml">SVG</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Upload File</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
